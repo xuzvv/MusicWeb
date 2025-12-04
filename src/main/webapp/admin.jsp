@@ -12,6 +12,11 @@
 <div style="width:800px; margin:20px auto;">
     <h2>🛠️ 管理员控制台 <a href="index" style="font-size:14px;">返回首页</a></h2>
 
+    <div style="margin: 20px 0; text-align: right;">
+        <a href="dashboard.jsp" style="background: #6610f2; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">
+            📊 查看数据可视化大屏
+        </a>
+    </div>
     <h3>待审核列表</h3>
     <table border="1" width="100%">
         <tr><th>歌名</th><th>上传者</th><th>操作</th></tr>
