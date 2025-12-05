@@ -4,6 +4,7 @@ import com.music.bean.Message;
 import com.music.bean.User;
 import com.music.util.DBUtil;
 import java.sql.*;
+import java.text.SimpleDateFormat; // 引入格式化工具
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -11,32 +12,28 @@ import java.util.Map;
 
 public class MessageDao {
 
-    // 1. 保存消息 (加入了详细的调试日志)
+    // 1. 保存消息
     public void saveMessage(Message msg) {
-        System.out.println("【Debug】开始保存消息 -> 发送者:" + msg.getSenderId() + " 接收者:" + msg.getReceiverId() + " 内容:" + msg.getContent());
-
+        System.out.println("正在保存消息: " + msg.getContent());
         try (Connection conn = DBUtil.getConn()) {
             String sql = "INSERT INTO messages(sender_id, receiver_id, content) VALUES(?, ?, ?)";
             PreparedStatement ps = conn.prepareStatement(sql);
             ps.setInt(1, msg.getSenderId());
             ps.setInt(2, msg.getReceiverId());
             ps.setString(3, msg.getContent());
-
             int rows = ps.executeUpdate();
-            if (rows > 0) {
-                System.out.println("【Debug】✅ 消息保存成功！");
-            } else {
-                System.out.println("【Debug】❌ 消息保存失败，影响行数为 0");
-            }
+            System.out.println("保存结果: " + rows);
         } catch (Exception e) {
-            System.out.println("【Debug】❌ 发生严重错误，保存失败！！错误详情如下：");
-            e.printStackTrace(); // 请在 IDEA 下方的控制台看这里的红字报错
+            e.printStackTrace();
         }
     }
 
     // 2. 获取聊天记录
     public List<Message> getChatHistory(int userId1, int userId2) {
         List<Message> list = new ArrayList<>();
+        // ✨✨✨ 定义北京时间格式化器 ✨✨✨
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm");
+
         try (Connection conn = DBUtil.getConn()) {
             String sql = "SELECT m.*, u.username, u.nickname, u.avatar " +
                     "FROM messages m " +
@@ -59,14 +56,21 @@ public class MessageDao {
                 m.setReceiverId(rs.getInt("receiver_id"));
                 m.setContent(rs.getString("content"));
 
-                String time = rs.getString("send_time");
-                if(time != null && time.length() > 16) time = time.substring(0, 16);
-                m.setSendTime(time);
+                // ✨✨✨ 修复时间显示逻辑 ✨✨✨
+                // getTimestamp 会自动根据 URL 里的时区转换
+                Timestamp ts = rs.getTimestamp("send_time");
+                if (ts != null) {
+                    m.setSendTime(sdf.format(ts));
+                } else {
+                    m.setSendTime("");
+                }
 
                 m.setIsRead(rs.getInt("is_read"));
+
                 String nick = rs.getString("nickname");
                 m.setSenderName(nick != null ? nick : rs.getString("username"));
                 m.setSenderAvatar(rs.getString("avatar"));
+
                 list.add(m);
             }
         } catch (Exception e) { e.printStackTrace(); }
