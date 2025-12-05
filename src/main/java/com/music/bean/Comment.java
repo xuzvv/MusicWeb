@@ -1,12 +1,15 @@
 package com.music.bean;
+
 public class Comment {
     private int id;
     private int musicId;
     private String username;
     private String content;
-    private String createTime; // 为了方便，这里用String接收时间
+    private String createTime;
 
-    // 必须生成 Getter/Setter
+    // ✨✨✨ 新增：用于展示的昵称字段 (数据库表里没有，是查询时联表查出来的) ✨✨✨
+    private String nickname;
+
     public int getId() { return id; }
     public void setId(int id) { this.id = id; }
     public int getMusicId() { return musicId; }
@@ -17,4 +20,8 @@ public class Comment {
     public void setContent(String content) { this.content = content; }
     public String getCreateTime() { return createTime; }
     public void setCreateTime(String createTime) { this.createTime = createTime; }
+
+    // ✨✨✨ 新增 Getter/Setter ✨✨✨
+    public String getNickname() { return nickname; }
+    public void setNickname(String nickname) { this.nickname = nickname; }
 }

@@ -6,10 +6,13 @@ public class Music {
     private String artist;
     private String filePath;
     private int playCount;
-    private int status; // 0待审, 1通过
-    private String uploaderName;
+    private int status;
+    private String uploaderName; // 存的是 username (唯一账号)
+    private String duration;
+    private String uploadTime;
 
-    public Music() {}
+    // ✨✨✨ 新增：作者昵称 (用于展示) ✨✨✨
+    private String uploaderNickname;
 
     public int getId() { return id; }
     public void setId(int id) { this.id = id; }
@@ -25,4 +28,12 @@ public class Music {
     public void setStatus(int status) { this.status = status; }
     public String getUploaderName() { return uploaderName; }
     public void setUploaderName(String uploaderName) { this.uploaderName = uploaderName; }
+    public String getDuration() { return duration; }
+    public void setDuration(String duration) { this.duration = duration; }
+    public String getUploadTime() { return uploadTime; }
+    public void setUploadTime(String uploadTime) { this.uploadTime = uploadTime; }
+
+    // ✨ Getter/Setter ✨
+    public String getUploaderNickname() { return uploaderNickname; }
+    public void setUploaderNickname(String uploaderNickname) { this.uploaderNickname = uploaderNickname; }
 }
