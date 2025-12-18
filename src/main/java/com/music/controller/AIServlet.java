@@ -14,7 +14,7 @@ import java.util.concurrent.TimeUnit;
 @WebServlet("/chat")
 public class AIServlet extends HttpServlet {
     // ⚠️⚠️⚠️ 请去 deepseek 官网申请 API Key 填入这里
-    private static final String API_KEY = "sk-bdfad94463ba4d4d9e5f79ba53ad0cd8";
+    private static final String API_KEY = "sk-fac72cd052b444c0ab471f8895013282";
     private static final String API_URL = "https://api.deepseek.com/chat/completions";
 
     private final OkHttpClient client = new OkHttpClient.Builder()
@@ -35,7 +35,7 @@ public class AIServlet extends HttpServlet {
         // 提示词工程：设定人设为“资深音乐评论家”
         JsonObject systemMsg = new JsonObject();
         systemMsg.addProperty("role", "system");
-        systemMsg.addProperty("content", "你是一个资深音乐评论家，名字叫'回声Bot'。请用简短、专业的语气回答用户关于音乐、歌手、乐理的问题。如果问题与音乐无关，请礼貌拒绝。");
+        systemMsg.addProperty("content", "你是一个资深音乐评论家，名字叫'X² Voice AI'。请用简短、专业的语气回答用户关于音乐、歌手、乐理的问题。如果问题与音乐无关，请礼貌拒绝。");
 
         JsonObject userMsg = new JsonObject();
         userMsg.addProperty("role", "user");

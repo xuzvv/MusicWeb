@@ -2,7 +2,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>管理后台 - Echo</title>
+    <title>管理后台 - X² Voice</title>
     <style>
         body { font-family: "Microsoft YaHei", sans-serif; background: #f4f6f9; padding: 20px; }
         .container { width: 900px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 5px 20px rgba(0,0,0,0.05); }

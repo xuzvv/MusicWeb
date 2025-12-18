@@ -5,7 +5,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>个人主页 - Echo · 回声</title>
+    <title>个人主页 - X² Voice</title>
     <style>
         body { margin: 0; padding: 0; font-family: "Microsoft YaHei", sans-serif; background: #f4f6f9; color: #333; padding-top: 40px; padding-bottom: 40px; }
         .container { width: 1000px; margin: 0 auto; display: flex; gap: 25px; align-items: flex-start; }

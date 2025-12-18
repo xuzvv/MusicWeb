@@ -5,7 +5,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Echo · 回声 | 独立音乐创作平台</title>
+    <title>X² Voice | 个人音乐分享平台</title>
     <style>
         /* 全局重置 */
         body { margin: 0; padding: 0; font-family: "Microsoft YaHei", "Segoe UI", sans-serif; background-color: #f4f6f9; color: #333; }
@@ -141,8 +141,8 @@
 <div class="container">
     <div class="header">
         <div class="brand">
-            <h1>Echo · 回声</h1>
-            <span class="slogan">念念不忘，必有回响</span>
+            <h1>X² Voice</h1>
+            <span class="slogan">听见未知的频率</span>
         </div>
 
         <div class="clock-box">
@@ -247,7 +247,7 @@
     </div>
 
     <div class="footer">
-        <p>&copy; 2025 deepsuccess.top | Echo Music Community. All Rights Reserved.</p>
+        <p>&copy; 2025 x2vv.com | X² Voice Studio. All Rights Reserved.</p>
 <%--        <p>--%>
 <%--            <a href="https://beian.miit.gov.cn/" target="_blank">京ICP备88888888号-1</a>--%>
 <%--            &nbsp;|&nbsp;--%>

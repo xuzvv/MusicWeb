@@ -9,7 +9,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>注册 - Echo</title>
+    <title>注册 - X² Voice</title>
     <style>
         body { font-family: sans-serif; background: #f0f2f5; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
         .box { background: white; padding: 40px; border-radius: 8px; width: 350px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center; }

@@ -10,7 +10,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>创作手记 - 校园云音乐</title>
+    <title>创作手记 - X² Voice</title>
     <style>
         body { font-family: "Microsoft YaHei", sans-serif; background: #f9f9f9; padding: 40px; }
         .container { max-width: 800px; margin: 0 auto; background: white; padding: 40px; border-radius: 8px; box-shadow: 0 2px 15px rgba(0,0,0,0.05); }

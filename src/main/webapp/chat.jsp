@@ -97,7 +97,12 @@
     var targetAvatar = "<%= target.getAvatar() %>";
     var contextPath = "<%= request.getContextPath() %>";
 
-    var ws = new WebSocket("ws://" + window.location.host + contextPath + "/chatSocket/" + currentId);
+    // === 修改开始：自动适配 HTTPS 协议 ===
+    var wsProtocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+    var wsUrl = wsProtocol + window.location.host + contextPath + "/chatSocket/" + currentId;
+
+    var ws = new WebSocket(wsUrl);
+    // === 修改结束 ===
 
     ws.onmessage = function(event) {
         var msg = JSON.parse(event.data);
@@ -110,6 +115,12 @@
         var input = document.getElementById("inputMsg");
         var text = input.value.trim();
         if(!text) return;
+
+        // 增加安全检查：如果连接没建立，提示用户
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+            alert("聊天服务连接中或连接失败，请刷新页面重试！");
+            return;
+        }
 
         var msgObj = {
             senderId: currentId,

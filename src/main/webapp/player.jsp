@@ -6,7 +6,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>正在播放 - Echo · 回声</title>
+    <title>正在播放 - X² Voice</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/aplayer/1.10.1/APlayer.min.css">
 
     <style>
@@ -203,8 +203,10 @@
     });
     ap.on('seeked', function () { lastTime = ap.audio.currentTime; });
 
-    // 3. WebSocket
-    var wsUrl = "ws://" + window.location.host + contextPath + "/danmaku/" + musicId;
+    // 3. WebSocket (已修复：自动适配 https 协议)
+    var wsProtocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+    var wsUrl = wsProtocol + window.location.host + contextPath + "/danmaku/" + musicId;
+
     var ws = null;
     try {
         ws = new WebSocket(wsUrl);

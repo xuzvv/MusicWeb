@@ -18,8 +18,8 @@
 
     <div id="chat-messages" style="flex: 1; padding: 15px; overflow-y: auto; background: #f9f9f9; font-size: 14px;">
         <div style="margin-bottom: 10px;">
-            <div style="background: #e1f5fe; padding: 8px 12px; border-radius: 8px; display: inline-block; max-width: 80%;">
-                你好！我是 DeepSeek 驱动的音乐助手，有什么可以帮你的吗？
+            <div style="background: #fff; border: 1px solid #ddd; padding: 8px 12px; border-radius: 8px; display: inline-block; max-width: 80%;">
+                你好！我是 X² Voice AI 音乐助手，有什么可以帮你的吗？
             </div>
         </div>
     </div>
@@ -64,17 +64,25 @@
             .then(res => res.json())
             .then(data => {
                 // 4. 更新回复
-                document.getElementById(loadingId).innerText = data.answer;
+                var loadingBubble = document.getElementById(loadingId);
+                if (loadingBubble) {
+                    loadingBubble.innerText = data.answer;
+                }
             })
             .catch(err => {
-                document.getElementById(loadingId).innerText = "网络出小差了，请重试。";
+                var loadingBubble = document.getElementById(loadingId);
+                if (loadingBubble) {
+                    loadingBubble.innerText = "网络出小差了，请重试。";
+                }
             });
     }
 
     function appendMsg(text, role) {
         var box = document.getElementById("chat-messages");
         var div = document.createElement("div");
-        var id = "msg-" + new Date().getTime();
+
+        // 🔥 修改点2：核心修复！在时间戳后增加随机数，防止 ID 冲突导致气泡被吞 🔥
+        var id = "msg-" + new Date().getTime() + "-" + Math.floor(Math.random() * 10000);
 
         div.style.marginBottom = "10px";
         div.style.textAlign = role === "user" ? "right" : "left";

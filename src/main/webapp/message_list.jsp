@@ -5,7 +5,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>我的消息 - Echo</title>
+    <title>我的消息 - X² Voice</title>
     <style>
         body { font-family: "Microsoft YaHei", sans-serif; background: #f4f6f9; padding: 20px; }
         .container { width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 5px 20px rgba(0,0,0,0.05); }
