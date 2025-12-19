@@ -48,6 +48,19 @@
         .danmaku-item { position: absolute; color: white; font-size: 24px; font-weight: bold; text-shadow: 2px 2px 4px #000; white-space: nowrap; animation: move 8s linear forwards; font-family: "SimHei"; }
         @keyframes move { from { left: 100%; } to { left: -100%; } }
 
+        /* ✨✨✨ 新增：推荐标签样式 ✨✨✨ */
+        .rec-tag { font-size: 10px; padding: 1px 4px; border-radius: 3px; margin-right: 5px; font-weight: bold; vertical-align: middle; }
+        .tag-red { border: 1px solid #ff4d4f; color: #ff4d4f; background: #fff1f0; }
+        .tag-green { border: 1px solid #52c41a; color: #52c41a; background: #f6ffed; }
+        .tag-mixed { border: 1px solid #faad14; color: #faad14; background: #fffbe6; }
+
+        /* ✨✨✨ 新增：点赞/点踩按钮样式 ✨✨✨ */
+        .feedback-box { text-align: center; margin-top: 15px; display: flex; gap: 20px; justify-content: center; }
+        .btn-rate { background: #444; border: 1px solid #666; color: #ccc; padding: 5px 15px; border-radius: 20px; cursor: pointer; transition: 0.3s; display: flex; align-items: center; gap: 5px; font-size: 14px; }
+        .btn-rate:hover { background: #555; color: white; }
+        .btn-rate.active-like { background: #ff4d4f; border-color: #ff4d4f; color: white; }
+        .btn-rate.active-dislike { background: #555; border-color: #999; color: #999; text-decoration: line-through; }
+
         /* 输入框与发送按钮 */
         .dm-input-box { margin-top: 15px; display: flex; gap: 10px; justify-content: center; }
         .dm-input-box input { flex: 1; padding: 10px; border-radius: 4px; border: 1px solid #555; background: #444; color: white; outline: none;}
@@ -98,6 +111,15 @@
             <div id="danmaku-container"></div>
             <div id="aplayer"></div>
 
+            <div class="feedback-box">
+                <button class="btn-rate" id="btnLike" onclick="rateMusic(1)">
+                    👍 喜欢
+                </button>
+                <button class="btn-rate" id="btnDislike" onclick="rateMusic(-1)">
+                    👎 不感冒
+                </button>
+            </div>
+
             <div class="dm-input-box">
                 <input type="text" id="dmText" placeholder="🚀 发条弹幕互动一下 (回车发送)" maxlength="50" />
                 <button class="btn-send" onclick="sendDanmaku()">发射</button>
@@ -131,10 +153,8 @@
                         List<Comment> comments = (List<Comment>)request.getAttribute("commentList");
                         if(comments != null && comments.size() > 0) {
                             for(Comment c : comments) {
-                                // 判断显示昵称还是未命名
                                 String displayName = "未命名用户";
                                 String nameClass = "user-unnamed";
-
                                 if (c.getNickname() != null && !c.getNickname().trim().isEmpty()) {
                                     displayName = c.getNickname();
                                     nameClass = "";
@@ -163,10 +183,18 @@
             List<Music> recList = (List<Music>)request.getAttribute("recommendList");
             if(recList != null) {
                 for(Music rm : recList) {
+                    // 计算标签
+                    String tagHtml = "";
+                    String type = rm.getRecommendType();
+                    if ("red".equals(type)) tagHtml = "<span class='rec-tag tag-red'>🔥</span>";
+                    else if ("green".equals(type)) tagHtml = "<span class='rec-tag tag-green'>🚀</span>";
+                    else if ("mixed".equals(type)) tagHtml = "<span class='rec-tag tag-mixed'>🌟</span>";
         %>
         <div style="display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 13px;">
-            <div style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 120px;">
-                <a href="play?id=<%= rm.getId() %>" style="color: #eee; text-decoration: none; font-weight: bold;"><%= rm.getTitle() %></a>
+            <div style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 140px;">
+                <a href="play?id=<%= rm.getId() %>" style="color: #eee; text-decoration: none;">
+                    <%= tagHtml %><%= rm.getTitle() %>
+                </a>
                 <div style="color: #888; font-size: 12px; margin-top:2px;">UP: <%= rm.getUploaderName() %></div>
             </div>
             <div style="text-align: right;">
@@ -203,22 +231,20 @@
     });
     ap.on('seeked', function () { lastTime = ap.audio.currentTime; });
 
-    // 3. WebSocket (已修复：自动适配 https 协议)
+    // 3. WebSocket
     var wsProtocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
     var wsUrl = wsProtocol + window.location.host + contextPath + "/danmaku/" + musicId;
-
     var ws = null;
     try {
         ws = new WebSocket(wsUrl);
         ws.onmessage = function(event) {
             var data = JSON.parse(event.data);
-            // 只有当时间差很小时(实时发送)，才显示弹幕，防止历史弹幕和实时广播重复显示
             if (Math.abs(data.time - ap.audio.currentTime) < 2) showDanmaku(data.text, true);
             danmakuData.push({content: data.text, videoTime: data.time});
         };
     } catch (e) { console.error(e); }
 
-    // 4. 发送弹幕 (修复双重显示：只发不画，等广播)
+    // 4. 发送弹幕
     function sendDanmaku() {
         var input = document.getElementById("dmText");
         var text = input.value.trim();
@@ -245,6 +271,78 @@
     function copyShareLink() {
         navigator.clipboard.writeText(window.location.href).then(() => alert("✅ 链接已复制！")).catch(() => alert("复制失败"));
     }
+
+    // ✨✨✨ 6. 智能反馈系统逻辑 (新增) ✨✨✨
+
+    // 状态标记：用户是否已经进行了显性评价
+    var hasExplicitlyRated = false;
+
+    // A. 点赞/点踩逻辑 (显性反馈)
+    function rateMusic(type) {
+        // UI 视觉反馈
+        if (type === 1) {
+            document.getElementById('btnLike').classList.add('active-like');
+            document.getElementById('btnDislike').classList.remove('active-dislike');
+        } else {
+            document.getElementById('btnDislike').classList.add('active-dislike');
+            document.getElementById('btnLike').classList.remove('active-like');
+        }
+
+        // 核心：标记为已评价，这将阻止后续的时长算法覆盖数据
+        hasExplicitlyRated = true;
+
+        // 发送请求给后端
+        fetch("feedback", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: "musicId=" + musicId + "&type=" + type
+        }).then(res => {
+            console.log("显性评价已提交: " + type);
+        });
+    }
+
+    // B. 隐性反馈逻辑 (离开页面/切歌时触发)
+    function reportPlayData() {
+        if (!ap) return;
+
+        // 优先级博弈：如果用户已经点了赞/踩，就不再发送时长数据去改分了
+        if (hasExplicitlyRated) {
+            console.log("用户已显性评价，跳过时长算法。");
+            return;
+        }
+
+        var currentTime = ap.audio.currentTime;
+        var duration = ap.audio.duration;
+
+        // 只有播放超过 5 秒才算有效数据，防止误触
+        if (currentTime > 5 && duration > 1) {
+            var data = new FormData();
+            data.append("musicId", musicId);
+            data.append("playTime", currentTime);
+            data.append("totalTime", duration);
+
+            // 使用 sendBeacon 确保页面关闭也能送达
+            if (navigator.sendBeacon) {
+                navigator.sendBeacon("recordBehavior", data);
+                console.log("隐性时长数据已上报 (Beacon)");
+            } else {
+                // 降级处理 (虽然页面关闭时可能发不出去，但切歌时可以)
+                fetch("recordBehavior", { method: "POST", body: data });
+            }
+        }
+    }
+
+    // 监听各类离开事件
+    window.addEventListener("visibilitychange", function() {
+        if (document.visibilityState === 'hidden') reportPlayData();
+    });
+    window.addEventListener("beforeunload", function() {
+        reportPlayData();
+    });
+    // 播放结束也算一种“离开”状态（听完了）
+    ap.on('ended', function () {
+        reportPlayData();
+    });
 </script>
 
 <% } else { %>

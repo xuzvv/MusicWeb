@@ -7,13 +7,25 @@ public class Music {
     private String filePath;
     private int playCount;
     private int status;
-    private String uploaderName; // 存的是 username (唯一账号)
+    private String uploaderName;
     private String duration;
     private String uploadTime;
 
-    // ✨✨✨ 新增：作者昵称 (用于展示) ✨✨✨
+    // 数据库扩展字段
+    private int durationSeconds;
+    private double totalPreferenceSum;
+    private int selectionCount;
+    private double recommendationScore;
+
+    // 辅助字段
     private String uploaderNickname;
 
+    // ✨✨✨ 新增：推荐类型 (red, green, mixed, normal) ✨✨✨
+    private String recommendType;
+    // ✨✨✨ 新增：个人喜好度 (用于排序比较) ✨✨✨
+    private double personalPreference;
+
+    // Getters and Setters
     public int getId() { return id; }
     public void setId(int id) { this.id = id; }
     public String getTitle() { return title; }
@@ -32,8 +44,21 @@ public class Music {
     public void setDuration(String duration) { this.duration = duration; }
     public String getUploadTime() { return uploadTime; }
     public void setUploadTime(String uploadTime) { this.uploadTime = uploadTime; }
-
-    // ✨ Getter/Setter ✨
     public String getUploaderNickname() { return uploaderNickname; }
     public void setUploaderNickname(String uploaderNickname) { this.uploaderNickname = uploaderNickname; }
+
+    public int getDurationSeconds() { return durationSeconds; }
+    public void setDurationSeconds(int durationSeconds) { this.durationSeconds = durationSeconds; }
+    public double getTotalPreferenceSum() { return totalPreferenceSum; }
+    public void setTotalPreferenceSum(double totalPreferenceSum) { this.totalPreferenceSum = totalPreferenceSum; }
+    public int getSelectionCount() { return selectionCount; }
+    public void setSelectionCount(int selectionCount) { this.selectionCount = selectionCount; }
+    public double getRecommendationScore() { return recommendationScore; }
+    public void setRecommendationScore(double recommendationScore) { this.recommendationScore = recommendationScore; }
+
+    // 新增字段的 Getter/Setter
+    public String getRecommendType() { return recommendType; }
+    public void setRecommendType(String recommendType) { this.recommendType = recommendType; }
+    public double getPersonalPreference() { return personalPreference; }
+    public void setPersonalPreference(double personalPreference) { this.personalPreference = personalPreference; }
 }

@@ -1,36 +1,60 @@
 package com.music.controller;
 
 import com.music.bean.Music;
+import com.music.bean.User; // ✨ 必须导入 User
 import com.music.dao.CommentDao;
-import com.music.dao.MusicDao; // 引入DAO
+import com.music.dao.MusicDao;
 import com.music.service.MusicService;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.*;
 import java.io.IOException;
+import java.util.List; // ✨ 必须导入 List
 
 @WebServlet("/play")
 public class PlayServlet extends HttpServlet {
     private MusicService service = new MusicService();
     private CommentDao commentDao = new CommentDao();
-    private MusicDao musicDao = new MusicDao(); // 用于获取推荐列表
+    private MusicDao musicDao = new MusicDao();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         String idStr = req.getParameter("id");
         if(idStr != null) {
-            int musicId = Integer.parseInt(idStr);
+            int currentMusicId = Integer.parseInt(idStr);
 
-            // 1. 获取音乐详情（同时增加播放次数）
-            Music music = service.play(musicId);
+            // 1. 获取音乐详情 (并增加播放量)
+            Music music = service.play(currentMusicId);
 
-            // 2. 获取这首歌的评论列表
-            req.setAttribute("commentList", commentDao.getCommentsByMusicId(musicId));
+            // ✨✨✨ 算法3：记录跳转序列 (A -> B) ✨✨✨
+            HttpSession session = req.getSession();
+            User user = (User) session.getAttribute("user");
+            Integer prevMusicId = (Integer) session.getAttribute("lastPlayedMusicId");
 
-            // 3. 【新增】获取 5 首随机推荐歌曲
-            req.setAttribute("recommendList", musicDao.getRandomMusicList(5));
+            if (user != null && prevMusicId != null && prevMusicId != currentMusicId) {
+                // 如果是从别的歌切过来的，记录 A->B
+                musicDao.updateUserSequence(user.getId(), prevMusicId, currentMusicId);
+            }
+            // 更新 Session，现在的 current 变成未来的 prev
+            session.setAttribute("lastPlayedMusicId", currentMusicId);
 
-            // 4. 存入请求域并转发
+            // ✨✨✨ 统一推荐列表 (复刻主页逻辑) ✨✨✨
+            List<Music> recommendList;
+            if (user != null) {
+                recommendList = musicDao.getRecommendationForUser(user.getId());
+            } else {
+                recommendList = musicDao.getRecommendationForGuest();
+            }
+
+            // 侧边栏太长不好看，截取前 10 首
+            if (recommendList.size() > 10) {
+                recommendList = recommendList.subList(0, 10);
+            }
+            req.setAttribute("recommendList", recommendList);
+
+            // 3. 获取评论
+            req.setAttribute("commentList", commentDao.getCommentsByMusicId(currentMusicId));
+
             req.setAttribute("m", music);
             req.getRequestDispatcher("/player.jsp").forward(req, resp);
         }

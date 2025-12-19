@@ -134,6 +134,16 @@
         .footer a:hover { color: #764ba2; }
 
         .search-title { padding: 20px; font-size: 18px; color: #764ba2; border-bottom: 1px solid #eee; }
+
+        /* ✨✨✨ 新增：推荐标签样式 ✨✨✨ */
+        .rec-tag { font-size: 12px; padding: 2px 6px; border-radius: 4px; margin-right: 8px; font-weight: bold; }
+        .tag-red { border: 1px solid #ff4d4f; color: #ff4d4f; background: #fff1f0; }
+        .tag-green { border: 1px solid #52c41a; color: #52c41a; background: #f6ffed; }
+        .tag-mixed { border: 1px solid #faad14; color: #faad14; background: #fffbe6; }
+
+        /* 列表项的特殊高亮 (可选，给红色推荐加个左边框强调) */
+        .list-item.highlight-red { border-left: 3px solid #ff4d4f; background-color: #fff9f9; }
+        .list-item.highlight-mixed { border-left: 3px solid #faad14; background-color: #fffae0; }
     </style>
 </head>
 <body>
@@ -204,9 +214,27 @@
     <div class="content-area">
         <% List<Music> list = (List<Music>)request.getAttribute("list");
             if(list != null && list.size() > 0) {
-                for(Music m : list) { %>
-        <div class="list-item">
+                for(Music m : list) {
+                    // ✨✨✨ 推荐算法标签逻辑 ✨✨✨
+                    String tagHtml = "";
+                    String itemClass = "list-item";
+                    String type = m.getRecommendType();
+
+                    if ("red".equals(type)) {
+                        tagHtml = "<span class='rec-tag tag-red'>🔥 必听</span>";
+                        itemClass += " highlight-red";
+                    } else if ("green".equals(type)) {
+                        tagHtml = "<span class='rec-tag tag-green'>🚀 热门</span>";
+                    } else if ("mixed".equals(type)) {
+                        tagHtml = "<span class='rec-tag tag-mixed'>🌟 超级推荐</span>";
+                        itemClass += " highlight-mixed";
+                    }
+        %>
+        <div class="<%= itemClass %>">
             <div class="music-info">
+                <%-- 输出推荐标签 (如果有的话) --%>
+                <%= tagHtml %>
+
                 <strong><%= m.getTitle() %></strong>
                 <span class="artist"> - <%= m.getArtist() %></span>
                 <a href="profile?username=<%= m.getUploaderName() %>" class="tag-up" title="访问主页">UP: <%= m.getUploaderNickname() %></a>
@@ -248,11 +276,6 @@
 
     <div class="footer">
         <p>&copy; 2025 x2vv.com | X² Voice Studio. All Rights Reserved.</p>
-<%--        <p>--%>
-<%--            <a href="https://beian.miit.gov.cn/" target="_blank">京ICP备88888888号-1</a>--%>
-<%--            &nbsp;|&nbsp;--%>
-<%--            <a href="#">公网安备 1101080202xxxx号</a>--%>
-<%--        </p>--%>
     </div>
 </div>
 
