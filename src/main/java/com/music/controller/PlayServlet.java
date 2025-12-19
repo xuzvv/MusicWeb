@@ -38,19 +38,23 @@ public class PlayServlet extends HttpServlet {
             // 更新 Session，现在的 current 变成未来的 prev
             session.setAttribute("lastPlayedMusicId", currentMusicId);
 
-            // ✨ 获取当前用户对这首歌的评分 (用于前端高亮)
+            // ✨ 获取用户评分状态 (✨✨✨ 修复图标假亮的关键逻辑 ✨✨✨)
             double myScore = 0.0;
+            int isExplicit = 0; // 新增：是否显性操作过
             if (user != null) {
                 myScore = musicDao.getMusicPreferenceValue(user.getId(), currentMusicId);
+                // 获取真实的显性状态 (1=点过, 0=没点过)
+                isExplicit = musicDao.getMusicExplicitStatus(user.getId(), currentMusicId);
             }
             req.setAttribute("myScore", myScore);
+            req.setAttribute("isExplicit", isExplicit); // 必须传给前端！
 
             // ✨ 获取推荐列表 (使用播放页专用逻辑：序列优先)
             List<Music> recommendList;
             if (user != null) {
                 recommendList = musicDao.getRecommendationForPlayer(user.getId(), currentMusicId);
             } else {
-                recommendList = musicDao.getRecommendationForGuest();
+                recommendList = musicDao.getRecommendationForGuest(); // 游客走全站热度
             }
 
             // 截取前 10 首
