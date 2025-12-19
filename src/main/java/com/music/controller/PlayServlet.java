@@ -1,7 +1,7 @@
 package com.music.controller;
 
 import com.music.bean.Music;
-import com.music.bean.User; // ✨ 必须导入 User
+import com.music.bean.User;
 import com.music.dao.CommentDao;
 import com.music.dao.MusicDao;
 import com.music.service.MusicService;
@@ -9,7 +9,7 @@ import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.*;
 import java.io.IOException;
-import java.util.List; // ✨ 必须导入 List
+import java.util.List;
 
 @WebServlet("/play")
 public class PlayServlet extends HttpServlet {
@@ -26,11 +26,11 @@ public class PlayServlet extends HttpServlet {
             // 1. 获取音乐详情 (并增加播放量)
             Music music = service.play(currentMusicId);
 
-            // ✨✨✨ 算法3：记录跳转序列 (A -> B) ✨✨✨
             HttpSession session = req.getSession();
             User user = (User) session.getAttribute("user");
-            Integer prevMusicId = (Integer) session.getAttribute("lastPlayedMusicId");
 
+            // ✨ 算法3：记录跳转序列 (A -> B)
+            Integer prevMusicId = (Integer) session.getAttribute("lastPlayedMusicId");
             if (user != null && prevMusicId != null && prevMusicId != currentMusicId) {
                 // 如果是从别的歌切过来的，记录 A->B
                 musicDao.updateUserSequence(user.getId(), prevMusicId, currentMusicId);
@@ -38,15 +38,22 @@ public class PlayServlet extends HttpServlet {
             // 更新 Session，现在的 current 变成未来的 prev
             session.setAttribute("lastPlayedMusicId", currentMusicId);
 
-            // ✨✨✨ 统一推荐列表 (复刻主页逻辑) ✨✨✨
+            // ✨ 获取当前用户对这首歌的评分 (用于前端高亮)
+            double myScore = 0.0;
+            if (user != null) {
+                myScore = musicDao.getMusicPreferenceValue(user.getId(), currentMusicId);
+            }
+            req.setAttribute("myScore", myScore);
+
+            // ✨ 获取推荐列表 (使用播放页专用逻辑：序列优先)
             List<Music> recommendList;
             if (user != null) {
-                recommendList = musicDao.getRecommendationForUser(user.getId());
+                recommendList = musicDao.getRecommendationForPlayer(user.getId(), currentMusicId);
             } else {
                 recommendList = musicDao.getRecommendationForGuest();
             }
 
-            // 侧边栏太长不好看，截取前 10 首
+            // 截取前 10 首
             if (recommendList.size() > 10) {
                 recommendList = recommendList.subList(0, 10);
             }

@@ -20,8 +20,8 @@ public class FeedbackServlet extends HttpServlet {
             int musicId = Integer.parseInt(req.getParameter("musicId"));
             int type = Integer.parseInt(req.getParameter("type")); // 1:赞, -1:踩
 
-            // 调用显性更新方法 (强制锁死)
-            musicDao.updateUserPreferenceDirectly(user.getId(), musicId, (double) type);
+            // 调用显性更新方法
+            musicDao.updateUserPreferenceDirectly(user.getId(), musicId, type);
 
             resp.getWriter().write("success");
         } catch (Exception e) { e.printStackTrace(); }

@@ -53,6 +53,8 @@
         .tag-red { border: 1px solid #ff4d4f; color: #ff4d4f; background: #fff1f0; }
         .tag-green { border: 1px solid #52c41a; color: #52c41a; background: #f6ffed; }
         .tag-mixed { border: 1px solid #faad14; color: #faad14; background: #fffbe6; }
+        /* 序列推荐标签 */
+        .tag-seq { border: 1px solid #1890ff; color: #1890ff; background: #e6f7ff; }
 
         /* ✨✨✨ 新增：点赞/点踩按钮样式 ✨✨✨ */
         .feedback-box { text-align: center; margin-top: 15px; display: flex; gap: 20px; justify-content: center; }
@@ -189,6 +191,7 @@
                     if ("red".equals(type)) tagHtml = "<span class='rec-tag tag-red'>🔥</span>";
                     else if ("green".equals(type)) tagHtml = "<span class='rec-tag tag-green'>🚀</span>";
                     else if ("mixed".equals(type)) tagHtml = "<span class='rec-tag tag-mixed'>🌟</span>";
+                    else if ("sequence".equals(type)) tagHtml = "<span class='rec-tag tag-seq'>⏭️</span>";
         %>
         <div style="display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 13px;">
             <div style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 140px;">
@@ -211,6 +214,12 @@
     var musicId = "<%= m.getId() %>";
     var contextPath = "<%= request.getContextPath() %>";
 
+    // ✨✨✨ 接收后端传来的用户评分状态 (高亮逻辑 - 新增部分) ✨✨✨
+    // 后端 PlayServlet 传过来的分数 (如果没登录就是0.0)
+    var myScore = <%= request.getAttribute("myScore") != null ? request.getAttribute("myScore") : 0.0 %>;
+    // 状态标记：用户是否已经进行了显性评价
+    var hasExplicitlyRated = false;
+
     // 1. 初始化 APlayer
     const ap = new APlayer({
         container: document.getElementById('aplayer'),
@@ -218,7 +227,16 @@
         audio: [{ name: '<%= m.getTitle() %>', artist: '<%= m.getArtist() %>', url: contextPath + '/<%= m.getFilePath() %>', cover: 'https://p1.music.126.net/K1p6H9l-b8r4xX8f_x8u4A==/109951165792942202.jpg?param=300x300' }]
     });
 
-    // 2. 弹幕逻辑
+    // 2. 页面加载时：根据 myScore 自动高亮图标 (新增)
+    if (myScore > 0.9) {
+        document.getElementById('btnLike').classList.add('active-like');
+        hasExplicitlyRated = true; // 既然数据库记录了1分，说明肯定是用户显性操作过的
+    } else if (myScore < -0.9) {
+        document.getElementById('btnDislike').classList.add('active-dislike');
+        hasExplicitlyRated = true;
+    }
+
+    // 3. 弹幕逻辑 (保持原有)
     var danmakuData = [];
     fetch("danmakuList?musicId=" + musicId).then(res => res.json()).then(data => { danmakuData = data; });
     var lastTime = 0;
@@ -231,7 +249,7 @@
     });
     ap.on('seeked', function () { lastTime = ap.audio.currentTime; });
 
-    // 3. WebSocket
+    // 4. WebSocket (保持原有)
     var wsProtocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
     var wsUrl = wsProtocol + window.location.host + contextPath + "/danmaku/" + musicId;
     var ws = null;
@@ -244,7 +262,7 @@
         };
     } catch (e) { console.error(e); }
 
-    // 4. 发送弹幕
+    // 5. 发送弹幕
     function sendDanmaku() {
         var input = document.getElementById("dmText");
         var text = input.value.trim();
@@ -267,15 +285,12 @@
         setTimeout(function() { span.remove(); }, 8000);
     }
 
-    // 5. 分享功能
+    // 6. 分享功能
     function copyShareLink() {
         navigator.clipboard.writeText(window.location.href).then(() => alert("✅ 链接已复制！")).catch(() => alert("复制失败"));
     }
 
-    // ✨✨✨ 6. 智能反馈系统逻辑 (新增) ✨✨✨
-
-    // 状态标记：用户是否已经进行了显性评价
-    var hasExplicitlyRated = false;
+    // ✨✨✨ 7. 智能反馈系统逻辑 ✨✨✨
 
     // A. 点赞/点踩逻辑 (显性反馈)
     function rateMusic(type) {
@@ -326,7 +341,7 @@
                 navigator.sendBeacon("recordBehavior", data);
                 console.log("隐性时长数据已上报 (Beacon)");
             } else {
-                // 降级处理 (虽然页面关闭时可能发不出去，但切歌时可以)
+                // 降级处理
                 fetch("recordBehavior", { method: "POST", body: data });
             }
         }
@@ -339,7 +354,6 @@
     window.addEventListener("beforeunload", function() {
         reportPlayData();
     });
-    // 播放结束也算一种“离开”状态（听完了）
     ap.on('ended', function () {
         reportPlayData();
     });
