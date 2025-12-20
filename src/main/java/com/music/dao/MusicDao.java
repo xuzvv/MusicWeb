@@ -122,33 +122,32 @@ public class MusicDao {
         return list;
     }
 
-    // ================== ✨ 核心推荐算法 (主页逻辑) ==================
+    // ================== ✨ 核心推荐算法 (主页逻辑 - 含黑名单过滤) ==================
 
-    // 9. 获取首页推荐列表 (5首喜爱 + 4首习惯 + 剩余全站热度)
     public List<Music> getRecommendationForUser(int userId) {
         List<Music> finalOrder = new ArrayList<>();
         Set<Integer> usedIds = new HashSet<>();
 
-        // 1. [Top 1-5] 用户主观喜爱 (Personal Preference)
+        // 1. [Top 1-5] 用户主观喜爱 (过滤点踩)
         try (Connection conn = DBUtil.getConn()) {
             String sql = "SELECT m.*, u.nickname, mp.preference_value " +
                     "FROM music_preference mp " +
                     "JOIN music m ON mp.music_id = m.id " +
                     "LEFT JOIN users u ON m.uploader_name = u.username " +
-                    "WHERE mp.user_id = ? AND m.status = 1 " +
+                    "WHERE mp.user_id = ? AND m.status = 1 AND mp.preference_value > -0.9 " +
                     "ORDER BY mp.preference_value DESC LIMIT 5";
             PreparedStatement ps = conn.prepareStatement(sql);
             ps.setInt(1, userId);
             ResultSet rs = ps.executeQuery();
             while (rs.next()) {
                 Music m = mapResultToMusic(rs);
-                m.setRecommendType("red"); // 🔥 主观喜爱
+                m.setRecommendType("red");
                 finalOrder.add(m);
                 usedIds.add(m.getId());
             }
         } catch (Exception e) { e.printStackTrace(); }
 
-        // 2. [Top 6-9] 用户行为习惯 (Green Rocket)
+        // 2. [Top 6-9] 用户行为习惯 (过滤黑名单)
         if (finalOrder.size() < 9) {
             try (Connection conn = DBUtil.getConn()) {
                 String sql = "SELECT m.*, u.nickname, SUM(seq.occurrence_count) as total_hits " +
@@ -156,17 +155,19 @@ public class MusicDao {
                         "JOIN music m ON seq.next_music_id = m.id " +
                         "LEFT JOIN users u ON m.uploader_name = u.username " +
                         "WHERE seq.user_id = ? AND m.status = 1 " +
+                        "AND m.id NOT IN (SELECT music_id FROM music_preference WHERE user_id=? AND preference_value <= -0.9) " +
                         "GROUP BY seq.next_music_id " +
                         "ORDER BY total_hits DESC LIMIT 10";
                 PreparedStatement ps = conn.prepareStatement(sql);
                 ps.setInt(1, userId);
+                ps.setInt(2, userId);
                 ResultSet rs = ps.executeQuery();
                 int count = 0;
                 while (rs.next() && count < 4) {
                     int id = rs.getInt("id");
                     if (!usedIds.contains(id)) {
                         Music m = mapResultToMusic(rs);
-                        m.setRecommendType("green"); // 🚀 行为习惯
+                        m.setRecommendType("green");
                         finalOrder.add(m);
                         usedIds.add(id);
                         count++;
@@ -175,11 +176,11 @@ public class MusicDao {
             } catch (Exception e) { e.printStackTrace(); }
         }
 
-        // 3. [Top 10+ & 补位] 全站综合热度 (Recommendation Score)
-        List<Music> allGlobal = getRecommendationForGuest();
+        // 3. [Top 10+ & 补位] 全站热度补齐
+        List<Music> allGlobal = getRecommendationForGuestWithFilter(userId);
         for (Music m : allGlobal) {
             if (!usedIds.contains(m.getId())) {
-                m.setRecommendType("global_hot"); // ✨ 全站热度 (白底)
+                m.setRecommendType("global_hot");
                 finalOrder.add(m);
                 usedIds.add(m.getId());
             }
@@ -189,45 +190,45 @@ public class MusicDao {
         return finalOrder;
     }
 
-    // ================== ✨ 核心推荐算法 (播放页逻辑 - 修复版) ==================
+    // ================== ✨ 核心推荐算法 (播放页逻辑 - 序列私有化与点踩封杀) ==================
 
-    // 10. 获取播放页推荐列表 (序列优先 -> 个人喜好 -> 全站热度补齐)
     public List<Music> getRecommendationForPlayer(int userId, int currentMusicId) {
         List<Music> result = new ArrayList<>();
         Set<Integer> addedIds = new HashSet<>();
         addedIds.add(currentMusicId);
 
-        // 1. [Context] 上下文序列 (A->B) - 优先展示 "我听完这首通常听什么" (私有化)
+        // 1. [Context] 上下文序列 (私有化 + 过滤黑名单)
         try (Connection conn = DBUtil.getConn()) {
-            // ✨✨✨ 修复点：增加 AND seq.user_id = ? 确保只查当前用户的习惯 ✨✨✨
             String sql = "SELECT m.*, u.nickname, seq.occurrence_count " +
                     "FROM music_sequence_habits seq " +
                     "JOIN music m ON seq.next_music_id = m.id " +
                     "LEFT JOIN users u ON m.uploader_name = u.username " +
                     "WHERE seq.current_music_id = ? AND seq.user_id = ? AND m.status = 1 " +
+                    "AND m.id NOT IN (SELECT music_id FROM music_preference WHERE user_id=? AND preference_value <= -0.9) " +
                     "ORDER BY seq.occurrence_count DESC LIMIT 5";
 
             PreparedStatement ps = conn.prepareStatement(sql);
             ps.setInt(1, currentMusicId);
-            ps.setInt(2, userId); // 传入 userId，如果是新用户查不到数据，list为空，完美符合要求
+            ps.setInt(2, userId);
+            ps.setInt(3, userId);
 
             ResultSet rs = ps.executeQuery();
             while(rs.next()) {
                 Music m = mapResultToMusic(rs);
-                m.setRecommendType("sequence"); // ⏭️ 序列推荐 (蓝)
+                m.setRecommendType("sequence");
                 result.add(m);
                 addedIds.add(m.getId());
             }
         } catch (Exception e) { e.printStackTrace(); }
 
-        // 2. [Personal] 个人主观喜爱 - 补回你的 "主观喜欢"
+        // 2. [Personal] 个人喜爱
         if (result.size() < 10) {
             try (Connection conn = DBUtil.getConn()) {
                 String sql = "SELECT m.*, u.nickname, mp.preference_value " +
                         "FROM music_preference mp " +
                         "JOIN music m ON mp.music_id = m.id " +
                         "LEFT JOIN users u ON m.uploader_name = u.username " +
-                        "WHERE mp.user_id = ? AND m.status = 1 " +
+                        "WHERE mp.user_id = ? AND m.status = 1 AND mp.preference_value > -0.9 " +
                         "ORDER BY mp.preference_value DESC LIMIT 5";
                 PreparedStatement ps = conn.prepareStatement(sql);
                 ps.setInt(1, userId);
@@ -236,7 +237,7 @@ public class MusicDao {
                     int id = rs.getInt("id");
                     if (!addedIds.contains(id)) {
                         Music m = mapResultToMusic(rs);
-                        m.setRecommendType("red"); // 🔥 主观喜爱 (红)
+                        m.setRecommendType("red");
                         result.add(m);
                         addedIds.add(id);
                     }
@@ -244,13 +245,13 @@ public class MusicDao {
             } catch (Exception e) { e.printStackTrace(); }
         }
 
-        // 3. [Global] 全站热度补齐 (兜底)
+        // 3. [Global] 热度兜底
         if (result.size() < 10) {
-            List<Music> globals = getRecommendationForGuest();
+            List<Music> globals = getRecommendationForGuestWithFilter(userId);
             for (Music m : globals) {
                 if (result.size() >= 10) break;
                 if (!addedIds.contains(m.getId())) {
-                    m.setRecommendType("global_hot"); // ✨ 全站热度 (白底)
+                    m.setRecommendType("global_hot");
                     result.add(m);
                     addedIds.add(m.getId());
                 }
@@ -259,60 +260,73 @@ public class MusicDao {
         return result;
     }
 
-    // 11. 游客推荐 / 全站热度榜
     public List<Music> getRecommendationForGuest() {
+        return getRecommendationForGuestWithFilter(0);
+    }
+
+    private List<Music> getRecommendationForGuestWithFilter(int userId) {
         List<Music> list = new ArrayList<>();
         try (Connection conn = DBUtil.getConn()) {
             String sql = "SELECT m.*, u.nickname FROM music m " +
                     "LEFT JOIN users u ON m.uploader_name = u.username " +
-                    "WHERE m.status = 1 " +
-                    "ORDER BY m.recommendation_score DESC LIMIT 50";
+                    "WHERE m.status = 1 ";
+            if (userId > 0) {
+                sql += "AND m.id NOT IN (SELECT music_id FROM music_preference WHERE user_id=" + userId + " AND preference_value <= -0.9) ";
+            }
+            sql += "ORDER BY m.recommendation_score DESC LIMIT 50";
             PreparedStatement ps = conn.prepareStatement(sql);
             ResultSet rs = ps.executeQuery();
             while (rs.next()) {
                 Music m = mapResultToMusic(rs);
-                m.setRecommendType("global_hot"); // 游客看全站热
+                m.setRecommendType("global_hot");
                 list.add(m);
             }
         } catch (Exception e) { e.printStackTrace(); }
         return list;
     }
 
-    // ================== ✨ 评分与反馈逻辑 ==================
+    // ================== ✨ 评分逻辑 (修复累加与阈值漏洞) ==================
 
-    // 12. 隐性反馈 (完播>90% -> 1.0)
     public void updateUserPreference(int userId, int musicId, int playTime, int totalTime) {
         if (totalTime <= 0) return;
 
         try (Connection conn = DBUtil.getConn()) {
+            // 1. 检查是否存在显性评分(红心/点踩)，有则锁死
             String checkSql = "SELECT is_explicit, preference_value FROM music_preference WHERE user_id=? AND music_id=?";
             PreparedStatement psCheck = conn.prepareStatement(checkSql);
             psCheck.setInt(1, userId);
             psCheck.setInt(2, musicId);
             ResultSet rs = psCheck.executeQuery();
 
-            double currentScore = 0.0;
+            double oldScore = 0.0;
             if (rs.next()) {
-                if (rs.getInt("is_explicit") == 1) return; // 显性锁死
-                currentScore = rs.getDouble("preference_value");
+                if (rs.getInt("is_explicit") == 1) return;
+                oldScore = rs.getDouble("preference_value");
             }
 
+            // 2. 线性计算比例
             double ratio = (double) playTime / totalTime;
             if (ratio > 1.0) ratio = 1.0;
 
-            double delta;
-            if (ratio > 0.9) {
-                currentScore = 1.0;
-                delta = 0;
+            double currentScore;
+            // ✨✨✨ 贯彻要求：线性加减分，取消 90% 置 1 逻辑 ✨✨✨
+            if (ratio < 0.5) {
+                // 低于 1/2 时长，在原分数基础上减去比例
+                currentScore = oldScore - ratio;
             } else {
-                if (ratio < 0.5) delta = -ratio;
-                else delta = ratio;
-                currentScore += delta;
+                // 超过 1/2 时长
+                // 🔥 修复点：不再用 currentScore += ratio (防止多次听歌导致分数顶满)
+                // 我们采用 ratio 作为本次听歌的直接表现值，如果比老分高，则更新
+                currentScore = Math.max(oldScore, ratio);
+                // 或者直接用 currentScore = ratio; 这样最符合你的“听多少算多少”
+                currentScore = ratio;
             }
 
+            // 严格控制范围
             if (currentScore > 1.0) currentScore = 1.0;
             if (currentScore < -1.0) currentScore = -1.0;
 
+            // 3. Upsert 数据库
             String upsertSql = "INSERT INTO music_preference (user_id, music_id, preference_value, last_exit_time, total_duration, is_explicit) " +
                     "VALUES (?, ?, ?, ?, ?, 0) " +
                     "ON DUPLICATE KEY UPDATE preference_value=?, last_exit_time=?, total_duration=?";
@@ -333,7 +347,6 @@ public class MusicDao {
         } catch (Exception e) { e.printStackTrace(); }
     }
 
-    // 13. 显性反馈
     public void updateUserPreferenceDirectly(int userId, int musicId, int type) {
         try (Connection conn = DBUtil.getConn()) {
             String checkSql = "SELECT preference_value, is_explicit FROM music_preference WHERE user_id=? AND music_id=?";
@@ -369,7 +382,6 @@ public class MusicDao {
         } catch (Exception e) { e.printStackTrace(); }
     }
 
-    // 获取评分
     public double getMusicPreferenceValue(int userId, int musicId) {
         double score = 0.0;
         try (Connection conn = DBUtil.getConn()) {
@@ -383,7 +395,6 @@ public class MusicDao {
         return score;
     }
 
-    // 获取显性状态
     public int getMusicExplicitStatus(int userId, int musicId) {
         int explicit = 0;
         try (Connection conn = DBUtil.getConn()) {
@@ -397,7 +408,6 @@ public class MusicDao {
         return explicit;
     }
 
-    // 14. 序列记录
     public void updateUserSequence(int userId, int prevMusicId, int currMusicId) {
         try (Connection conn = DBUtil.getConn()) {
             String sql = "INSERT INTO music_sequence_habits (user_id, current_music_id, next_music_id, occurrence_count) " +
@@ -418,7 +428,6 @@ public class MusicDao {
         } catch (Exception e) { e.printStackTrace(); }
     }
 
-    // 15. 更新全站热度
     private void updateMusicTotalPreference(int musicId) {
         try (Connection conn = DBUtil.getConn()) {
             String sumSql = "SELECT SUM(preference_value) FROM music_preference WHERE music_id=?";
