@@ -197,16 +197,20 @@ public class MusicDao {
         Set<Integer> addedIds = new HashSet<>();
         addedIds.add(currentMusicId);
 
-        // 1. [Context] 上下文序列 (A->B) - 优先展示 "大家听完这首听什么"
+        // 1. [Context] 上下文序列 (A->B) - 优先展示 "我听完这首通常听什么" (私有化)
         try (Connection conn = DBUtil.getConn()) {
+            // ✨✨✨ 修复点：增加 AND seq.user_id = ? 确保只查当前用户的习惯 ✨✨✨
             String sql = "SELECT m.*, u.nickname, seq.occurrence_count " +
                     "FROM music_sequence_habits seq " +
                     "JOIN music m ON seq.next_music_id = m.id " +
                     "LEFT JOIN users u ON m.uploader_name = u.username " +
-                    "WHERE seq.current_music_id = ? AND m.status = 1 " +
-                    "ORDER BY seq.occurrence_count DESC LIMIT 5"; // 取 Top 5 序列
+                    "WHERE seq.current_music_id = ? AND seq.user_id = ? AND m.status = 1 " +
+                    "ORDER BY seq.occurrence_count DESC LIMIT 5";
+
             PreparedStatement ps = conn.prepareStatement(sql);
             ps.setInt(1, currentMusicId);
+            ps.setInt(2, userId); // 传入 userId，如果是新用户查不到数据，list为空，完美符合要求
+
             ResultSet rs = ps.executeQuery();
             while(rs.next()) {
                 Music m = mapResultToMusic(rs);
@@ -216,8 +220,7 @@ public class MusicDao {
             }
         } catch (Exception e) { e.printStackTrace(); }
 
-        // 2. [Personal] 个人主观喜爱 - ✨✨✨ 新增：补回你的 "主观喜欢" ✨✨✨
-        // 既然在听歌，顺便推几首你最爱的歌也是合理的
+        // 2. [Personal] 个人主观喜爱 - 补回你的 "主观喜欢"
         if (result.size() < 10) {
             try (Connection conn = DBUtil.getConn()) {
                 String sql = "SELECT m.*, u.nickname, mp.preference_value " +
@@ -229,7 +232,7 @@ public class MusicDao {
                 PreparedStatement ps = conn.prepareStatement(sql);
                 ps.setInt(1, userId);
                 ResultSet rs = ps.executeQuery();
-                while (rs.next() && result.size() < 10) { // 只要还没满10首就继续补
+                while (rs.next() && result.size() < 10) {
                     int id = rs.getInt("id");
                     if (!addedIds.contains(id)) {
                         Music m = mapResultToMusic(rs);
