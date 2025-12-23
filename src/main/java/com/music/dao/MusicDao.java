@@ -122,19 +122,19 @@ public class MusicDao {
         return list;
     }
 
-    // ================== ✨ 核心推荐算法 (主页逻辑 - 含黑名单过滤) ==================
+    // ================== ✨ 核心推荐算法 (主页逻辑 - 彻底封杀点踩) ==================
 
     public List<Music> getRecommendationForUser(int userId) {
         List<Music> finalOrder = new ArrayList<>();
         Set<Integer> usedIds = new HashSet<>();
 
-        // 1. [Top 1-5] 用户主观喜爱 (过滤点踩)
+        // 1. [Top 1-5] 用户主观喜爱 (🔥 修正：分值必须 > 0)
         try (Connection conn = DBUtil.getConn()) {
             String sql = "SELECT m.*, u.nickname, mp.preference_value " +
                     "FROM music_preference mp " +
                     "JOIN music m ON mp.music_id = m.id " +
                     "LEFT JOIN users u ON m.uploader_name = u.username " +
-                    "WHERE mp.user_id = ? AND m.status = 1 AND mp.preference_value > -0.9 " +
+                    "WHERE mp.user_id = ? AND m.status = 1 AND mp.preference_value > 0 " +
                     "ORDER BY mp.preference_value DESC LIMIT 5";
             PreparedStatement ps = conn.prepareStatement(sql);
             ps.setInt(1, userId);
@@ -147,7 +147,7 @@ public class MusicDao {
             }
         } catch (Exception e) { e.printStackTrace(); }
 
-        // 2. [Top 6-9] 用户行为习惯 (过滤黑名单)
+        // 2. [Top 6-9] 用户行为习惯 (🔥 修正：物理隔离分值 <= 0)
         if (finalOrder.size() < 9) {
             try (Connection conn = DBUtil.getConn()) {
                 String sql = "SELECT m.*, u.nickname, SUM(seq.occurrence_count) as total_hits " +
@@ -155,7 +155,7 @@ public class MusicDao {
                         "JOIN music m ON seq.next_music_id = m.id " +
                         "LEFT JOIN users u ON m.uploader_name = u.username " +
                         "WHERE seq.user_id = ? AND m.status = 1 " +
-                        "AND m.id NOT IN (SELECT music_id FROM music_preference WHERE user_id=? AND preference_value <= -0.9) " +
+                        "AND m.id NOT IN (SELECT music_id FROM music_preference WHERE user_id=? AND preference_value <= 0) " +
                         "GROUP BY seq.next_music_id " +
                         "ORDER BY total_hits DESC LIMIT 10";
                 PreparedStatement ps = conn.prepareStatement(sql);
@@ -176,7 +176,7 @@ public class MusicDao {
             } catch (Exception e) { e.printStackTrace(); }
         }
 
-        // 3. [Top 10+ & 补位] 全站热度补齐
+        // 3. [Top 10+ & 补位] 全站综合热度 (含黑名单过滤)
         List<Music> allGlobal = getRecommendationForGuestWithFilter(userId);
         for (Music m : allGlobal) {
             if (!usedIds.contains(m.getId())) {
@@ -190,21 +190,21 @@ public class MusicDao {
         return finalOrder;
     }
 
-    // ================== ✨ 核心推荐算法 (播放页逻辑 - 序列私有化与点踩封杀) ==================
+    // ================== ✨ 核心推荐算法 (播放页逻辑 - 彻底封杀点踩) ==================
 
     public List<Music> getRecommendationForPlayer(int userId, int currentMusicId) {
         List<Music> result = new ArrayList<>();
         Set<Integer> addedIds = new HashSet<>();
         addedIds.add(currentMusicId);
 
-        // 1. [Context] 上下文序列 (私有化 + 过滤黑名单)
+        // 1. [Context] 上下文序列 (🔥 修正：物理隔离分值 <= 0)
         try (Connection conn = DBUtil.getConn()) {
             String sql = "SELECT m.*, u.nickname, seq.occurrence_count " +
                     "FROM music_sequence_habits seq " +
                     "JOIN music m ON seq.next_music_id = m.id " +
                     "LEFT JOIN users u ON m.uploader_name = u.username " +
                     "WHERE seq.current_music_id = ? AND seq.user_id = ? AND m.status = 1 " +
-                    "AND m.id NOT IN (SELECT music_id FROM music_preference WHERE user_id=? AND preference_value <= -0.9) " +
+                    "AND m.id NOT IN (SELECT music_id FROM music_preference WHERE user_id=? AND preference_value <= 0) " +
                     "ORDER BY seq.occurrence_count DESC LIMIT 5";
 
             PreparedStatement ps = conn.prepareStatement(sql);
@@ -221,14 +221,14 @@ public class MusicDao {
             }
         } catch (Exception e) { e.printStackTrace(); }
 
-        // 2. [Personal] 个人喜爱
+        // 2. [Personal] 个人喜爱 (🔥 修正：分值必须 > 0)
         if (result.size() < 10) {
             try (Connection conn = DBUtil.getConn()) {
                 String sql = "SELECT m.*, u.nickname, mp.preference_value " +
                         "FROM music_preference mp " +
                         "JOIN music m ON mp.music_id = m.id " +
                         "LEFT JOIN users u ON m.uploader_name = u.username " +
-                        "WHERE mp.user_id = ? AND m.status = 1 AND mp.preference_value > -0.9 " +
+                        "WHERE mp.user_id = ? AND m.status = 1 AND mp.preference_value > 0 " +
                         "ORDER BY mp.preference_value DESC LIMIT 5";
                 PreparedStatement ps = conn.prepareStatement(sql);
                 ps.setInt(1, userId);
@@ -245,7 +245,7 @@ public class MusicDao {
             } catch (Exception e) { e.printStackTrace(); }
         }
 
-        // 3. [Global] 热度兜底
+        // 3. [Global] 热度补齐 (含黑名单过滤)
         if (result.size() < 10) {
             List<Music> globals = getRecommendationForGuestWithFilter(userId);
             for (Music m : globals) {
@@ -271,7 +271,7 @@ public class MusicDao {
                     "LEFT JOIN users u ON m.uploader_name = u.username " +
                     "WHERE m.status = 1 ";
             if (userId > 0) {
-                sql += "AND m.id NOT IN (SELECT music_id FROM music_preference WHERE user_id=" + userId + " AND preference_value <= -0.9) ";
+                sql += "AND m.id NOT IN (SELECT music_id FROM music_preference WHERE user_id=" + userId + " AND preference_value <= 0) ";
             }
             sql += "ORDER BY m.recommendation_score DESC LIMIT 50";
             PreparedStatement ps = conn.prepareStatement(sql);
@@ -285,48 +285,37 @@ public class MusicDao {
         return list;
     }
 
-    // ================== ✨ 评分逻辑 (修复累加与阈值漏洞) ==================
+    // ================== ✨ 评分逻辑 (核心修正：不累加、不锁死90%) ==================
 
     public void updateUserPreference(int userId, int musicId, int playTime, int totalTime) {
         if (totalTime <= 0) return;
 
         try (Connection conn = DBUtil.getConn()) {
-            // 1. 检查是否存在显性评分(红心/点踩)，有则锁死
             String checkSql = "SELECT is_explicit, preference_value FROM music_preference WHERE user_id=? AND music_id=?";
             PreparedStatement psCheck = conn.prepareStatement(checkSql);
             psCheck.setInt(1, userId);
             psCheck.setInt(2, musicId);
             ResultSet rs = psCheck.executeQuery();
 
-            double oldScore = 0.0;
             if (rs.next()) {
-                if (rs.getInt("is_explicit") == 1) return;
-                oldScore = rs.getDouble("preference_value");
+                if (rs.getInt("is_explicit") == 1) return; // 显性点赞/踩锁死，算法不准动
             }
 
-            // 2. 线性计算比例
             double ratio = (double) playTime / totalTime;
             if (ratio > 1.0) ratio = 1.0;
 
             double currentScore;
-            // ✨✨✨ 贯彻要求：线性加减分，取消 90% 置 1 逻辑 ✨✨✨
+            // 🎯 核心逻辑：以 1/2 为界，线性反映本次表现，绝不累加旧分
             if (ratio < 0.5) {
-                // 低于 1/2 时长，在原分数基础上减去比例
-                currentScore = oldScore - ratio;
+                currentScore = -ratio; // 负分 (0 ~ -0.5)
             } else {
-                // 超过 1/2 时长
-                // 🔥 修复点：不再用 currentScore += ratio (防止多次听歌导致分数顶满)
-                // 我们采用 ratio 作为本次听歌的直接表现值，如果比老分高，则更新
-                currentScore = Math.max(oldScore, ratio);
-                // 或者直接用 currentScore = ratio; 这样最符合你的“听多少算多少”
-                currentScore = ratio;
+                currentScore = ratio;  // 正分 (0.5 ~ 1.0)
             }
 
             // 严格控制范围
             if (currentScore > 1.0) currentScore = 1.0;
             if (currentScore < -1.0) currentScore = -1.0;
 
-            // 3. Upsert 数据库
             String upsertSql = "INSERT INTO music_preference (user_id, music_id, preference_value, last_exit_time, total_duration, is_explicit) " +
                     "VALUES (?, ?, ?, ?, ?, 0) " +
                     "ON DUPLICATE KEY UPDATE preference_value=?, last_exit_time=?, total_duration=?";
@@ -355,7 +344,7 @@ public class MusicDao {
             psCheck.setInt(2, musicId);
             ResultSet rs = psCheck.executeQuery();
 
-            double newScore = (double) type;
+            double newScore = (double) type; // 1 or -1
             int newExplicit = 1;
 
             if (rs.next()) {
