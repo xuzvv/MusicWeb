@@ -83,6 +83,27 @@
         }
         .btn-github:hover { background: black; border-color: white; }
 
+        /* ✨✨✨ 新增：算法实验室按钮样式 ✨✨✨ */
+        .btn-lab {
+            display: block; /* 独占一行 */
+            margin-top: 4px; /* 与上方GitHub按钮的间距 */
+            font-size: 10px;
+            color: #ffcccc !important; /* 淡粉色文字 */
+            background: rgba(0, 0, 0, 0.3);
+            padding: 2px 0;
+            text-align: center;
+            border-radius: 3px;
+            border: 1px solid rgba(255,255,255,0.2);
+            text-decoration: none !important;
+            transition: all 0.2s;
+        }
+        .btn-lab:hover {
+            background: #ff0055;
+            color: white !important;
+            border-color: #ff0055;
+            transform: scale(1.05);
+        }
+
         .btn-upload {
             background: #fff; color: #764ba2 !important;
             padding: 6px 15px; border-radius: 20px; font-weight: bold;
@@ -170,9 +191,14 @@
         </form>
 
         <div class="user-panel">
-            <a href="https://github.com/TestDemoW/MusicWeb" target="_blank" class="btn-github">
-                ⭐ GitHub
-            </a>
+            <div style="display: flex; flex-direction: column; align-items: stretch; width: 85px;">
+                <a href="https://github.com/TestDemoW/MusicWeb" target="_blank" class="btn-github" style="justify-content: center;">
+                    ⭐ GitHub
+                </a>
+                <a href="algo-demo" target="_blank" class="btn-lab" title="查看AI算法实时演示">
+                    🧪 算法实验室
+                </a>
+            </div>
 
             <span style="opacity: 0.3;">|</span>
 

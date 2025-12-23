@@ -7,7 +7,62 @@ import java.util.*;
 
 public class MusicDao {
 
-    // ================== 基础查询功能 ==================
+    // =====================================================================
+    // 🧪 算法实验室专用接口 (用于演示页面对比 / 前端展示)
+    // =====================================================================
+
+    /**
+     * 🔴 旧算法：线性切分 (Baseline)
+     * 规则：播放比例 < 0.5 判负，否则判正
+     */
+    public static double calculateOldScore(int playTime, int totalTime) {
+        if (totalTime <= 0) return 0.0;
+        double ratio = (double) playTime / totalTime;
+        if (ratio > 1.0) ratio = 1.0;
+
+        if (ratio < 0.5) {
+            return -ratio; // 负分
+        } else {
+            return ratio;  // 正分
+        }
+    }
+
+    /**
+     * 🔵 新算法：AI 逻辑回归 (Logistic Regression V3.1 - Fixed for Raw Data)
+     * 修复说明：针对 Java 端输入的原始秒数（非标准化数据）进行了参数重调。
+     * 效果：完美解决了长歌曲因数值过大被判负的问题。
+     */
+    public static double calculateAIScore(int playTime, int totalTime) {
+        if (totalTime <= 0) return 0.0;
+        double ratio = (double) playTime / totalTime;
+        if (ratio > 1.0) ratio = 1.0;
+        double duration = (double) totalTime; // 秒
+
+        // 🏆 修复版参数 (适配原始数据输入)
+        // wRatio (8.0): 强权重，保证完播率依然是核心
+        // wDuration (0.002): 微小的正向激励，代表"歌曲越长，用户付出的时间成本越高，权重微调"
+        // bias (-4.0): 将 Sigmoid 的中心点平移，使得 50% 完播率成为分水岭
+        double wRatio = 8.0;
+        double wDuration = 0.002;
+        double bias = -4.0;
+
+        // 1. 计算 Logits (线性加权)
+        double z = (wRatio * ratio) + (wDuration * duration) + bias;
+
+        // 2. Sigmoid 激活 (转换为 0~1 概率)
+        double prob = 1.0 / (1.0 + Math.exp(-z));
+
+        // 3. 映射到系统评分区间 [-1.0, 1.0]
+        double score = (prob - 0.5) * 2.0;
+
+        // 4. 边界截断 (防止数值溢出)
+        if (score > 1.0) score = 1.0;
+        if (score < -1.0) score = -1.0;
+
+        return score;
+    }
+
+    // ================== 基础查询功能 (保持不变) ==================
 
     public List<Music> getMusicList(String type, int page, int size) {
         List<Music> list = new ArrayList<>();
@@ -128,7 +183,7 @@ public class MusicDao {
         List<Music> finalOrder = new ArrayList<>();
         Set<Integer> usedIds = new HashSet<>();
 
-        // 1. [Top 1-5] 用户主观喜爱 (🔥 修正：分值必须 > 0)
+        // 1. [Top 1-5] 用户主观喜爱
         try (Connection conn = DBUtil.getConn()) {
             String sql = "SELECT m.*, u.nickname, mp.preference_value " +
                     "FROM music_preference mp " +
@@ -147,7 +202,7 @@ public class MusicDao {
             }
         } catch (Exception e) { e.printStackTrace(); }
 
-        // 2. [Top 6-9] 用户行为习惯 (🔥 修正：物理隔离分值 <= 0)
+        // 2. [Top 6-9] 用户行为习惯
         if (finalOrder.size() < 9) {
             try (Connection conn = DBUtil.getConn()) {
                 String sql = "SELECT m.*, u.nickname, SUM(seq.occurrence_count) as total_hits " +
@@ -176,7 +231,7 @@ public class MusicDao {
             } catch (Exception e) { e.printStackTrace(); }
         }
 
-        // 3. [Top 10+ & 补位] 全站综合热度 (含黑名单过滤)
+        // 3. [Top 10+ & 补位] 全站综合热度
         List<Music> allGlobal = getRecommendationForGuestWithFilter(userId);
         for (Music m : allGlobal) {
             if (!usedIds.contains(m.getId())) {
@@ -190,14 +245,14 @@ public class MusicDao {
         return finalOrder;
     }
 
-    // ================== ✨ 核心推荐算法 (播放页逻辑 - 彻底封杀点踩) ==================
+    // ================== ✨ 核心推荐算法 (播放页逻辑) ==================
 
     public List<Music> getRecommendationForPlayer(int userId, int currentMusicId) {
         List<Music> result = new ArrayList<>();
         Set<Integer> addedIds = new HashSet<>();
         addedIds.add(currentMusicId);
 
-        // 1. [Context] 上下文序列 (🔥 修正：物理隔离分值 <= 0)
+        // 1. [Context] 上下文序列
         try (Connection conn = DBUtil.getConn()) {
             String sql = "SELECT m.*, u.nickname, seq.occurrence_count " +
                     "FROM music_sequence_habits seq " +
@@ -221,7 +276,7 @@ public class MusicDao {
             }
         } catch (Exception e) { e.printStackTrace(); }
 
-        // 2. [Personal] 个人喜爱 (🔥 修正：分值必须 > 0)
+        // 2. [Personal] 个人喜爱
         if (result.size() < 10) {
             try (Connection conn = DBUtil.getConn()) {
                 String sql = "SELECT m.*, u.nickname, mp.preference_value " +
@@ -245,7 +300,7 @@ public class MusicDao {
             } catch (Exception e) { e.printStackTrace(); }
         }
 
-        // 3. [Global] 热度补齐 (含黑名单过滤)
+        // 3. [Global] 热度补齐
         if (result.size() < 10) {
             List<Music> globals = getRecommendationForGuestWithFilter(userId);
             for (Music m : globals) {
@@ -285,7 +340,7 @@ public class MusicDao {
         return list;
     }
 
-    // ================== ✨ 评分逻辑 (核心修正：不累加、不锁死90%) ==================
+    // ================== ✨ 评分逻辑 (用户交互入口 - V3.1 Fixed) ==================
 
     public void updateUserPreference(int userId, int musicId, int playTime, int totalTime) {
         if (totalTime <= 0) return;
@@ -301,20 +356,8 @@ public class MusicDao {
                 if (rs.getInt("is_explicit") == 1) return; // 显性点赞/踩锁死，算法不准动
             }
 
-            double ratio = (double) playTime / totalTime;
-            if (ratio > 1.0) ratio = 1.0;
-
-            double currentScore;
-            // 🎯 核心逻辑：以 1/2 为界，线性反映本次表现，绝不累加旧分
-            if (ratio < 0.5) {
-                currentScore = -ratio; // 负分 (0 ~ -0.5)
-            } else {
-                currentScore = ratio;  // 正分 (0.5 ~ 1.0)
-            }
-
-            // 严格控制范围
-            if (currentScore > 1.0) currentScore = 1.0;
-            if (currentScore < -1.0) currentScore = -1.0;
+            // 🚀 调用封装好的静态 AI 算法计算分数
+            double currentScore = calculateAIScore(playTime, totalTime);
 
             String upsertSql = "INSERT INTO music_preference (user_id, music_id, preference_value, last_exit_time, total_duration, is_explicit) " +
                     "VALUES (?, ?, ?, ?, ?, 0) " +
