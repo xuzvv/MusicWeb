@@ -460,8 +460,10 @@ public class MusicDao {
         } catch (Exception e) { e.printStackTrace(); }
     }
 
-    private void updateMusicTotalPreference(int musicId) {
+    //private void updateMusicTotalPreference(int musicId) {
+    public void updateMusicTotalPreference(int musicId) {
         try (Connection conn = DBUtil.getConn()) {
+            // 1. 获取基础数据：总喜爱度 (Sum of Preference)
             String sumSql = "SELECT SUM(preference_value) FROM music_preference WHERE music_id=?";
             PreparedStatement psSum = conn.prepareStatement(sumSql);
             psSum.setInt(1, musicId);
@@ -469,14 +471,31 @@ public class MusicDao {
             double totalPref = 0;
             if (rs.next()) totalPref = rs.getDouble(1);
 
-            String selSql = "SELECT selection_count FROM music WHERE id=?";
-            PreparedStatement psSel = conn.prepareStatement(selSql);
-            psSel.setInt(1, musicId);
-            ResultSet rsSel = psSel.executeQuery();
-            int selCount = 0;
-            if (rsSel.next()) selCount = rsSel.getInt(1);
+            // 2. 获取流量数据：播放量 & 被选次数
+            String dataSql = "SELECT play_count, selection_count FROM music WHERE id=?";
+            PreparedStatement psData = conn.prepareStatement(dataSql);
+            psData.setInt(1, musicId);
+            ResultSet rsData = psData.executeQuery();
 
-            double recScore = totalPref + (selCount * 0.1);
+            int playCount = 0;
+            int selCount = 0;
+            if (rsData.next()) {
+                playCount = rsData.getInt("play_count");
+                selCount = rsData.getInt("selection_count");
+            }
+
+            // ================== 🔴 切换为旧算法 (V1.0) ==================
+
+            // 旧公式：简单的线性累加
+//            double recScore = totalPref + (selCount * 0.1);
+
+            // ================== 🔵 (新算法已注释) ==================
+             double SMOOTH_C = 10.0;
+            double GLOBAL_AVG = 0.1;
+            double bayesianAvg = (totalPref + (SMOOTH_C * GLOBAL_AVG)) / (playCount + SMOOTH_C);
+            double trafficScore = Math.log10(playCount + selCount + 10);
+            double recScore = bayesianAvg * trafficScore * 10;
+            // ========================================================
 
             String updateSql = "UPDATE music SET total_preference_sum = ?, recommendation_score = ? WHERE id = ?";
             PreparedStatement psUp = conn.prepareStatement(updateSql);
